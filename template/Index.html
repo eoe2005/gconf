@@ -1,0 +1,205 @@
+
+
+{{define "index"}}
+    {{template "header"}}
+        <style>
+            form{position: absolute;width: 300px;top:50%;left: 50%;transform: translate(-50%,-50%);
+                text-align: center;}
+            input{width: 100%;margin-top:12px;height: 2rem;line-height: 2rem;border-radius:.3rem;border:thin solid #EEE;text-indent: .5rem;}
+            input[type=text]{}
+            input[type=password]{}
+            input[type=submit]{cursor: pointer;width: 50%;background:#333;color: #FFF;text-indent: 0px;}
+        </style>
+        <form method="post">
+            <input name="name" placeholder="账号" type="text"  /><br />
+            <input name="pwd" type="password" placeholder="密码"> <br />
+            <input type="submit">
+        </form>
+    {{template "footer"}}
+{{end}}
+
+
+{{define "main"}}
+    {{template "header"}}
+        <style>
+            .g-nav{height: 2rem;line-height: 2rem;width: 80%;margin:0px 10%;margin-bottom: 1rem;overflow: hidden;}
+            .g-nav a{
+                display: block;float: left;height: 1.5rem;line-height: 1.5rem;padding:0px 1rem;
+                background: antiquewhite;color: #000;border-left:thin solid;
+                cursor: pointer;text-decoration: none;
+            }
+
+            .g-list{
+                width: 80%;margin:0px 10%;border:none;border-top: thin solid #ccc;border-left: thin solid #ccc;border-collapse: collapse;
+            }
+            .g-list tr th,td{text-align: center;border:none;border-right: thin solid #ccc;border-bottom: thin solid #ccc;height: 1.5rem;line-height: 1.5rem;}
+            .g-list tr th{background: #222;color:#FFF;opacity: .99;}
+            .g-list tr td{}
+            #f-add{width: 400px;}
+            #f-add div{width: 400px;padding-bottom: 1rem;}
+            #f-add div input{width: 398px;height: 1.5rem;line-height: 1.5rem;border:thin solid;}
+            #f-add div textarea{width: 398px;height: 100px;border:thin solid;}
+        </style>
+        <form id="f-add" onsubmit="return false;" style="display: none">
+            <input type="hidden" name="pid" value="{{.pid}}">
+            <div>
+                <input type="text" name="key" placeholder="输入配置名">
+            </div>
+            <div>
+                <input type="text" name="name" placeholder="请输入描述">
+            </div>
+            <div>
+                <textarea name="val" placeholder="输入内容"></textarea>
+            </div>
+        </form>
+        <div class="g-nav">
+            <a href="/main?id=0">根节点</a>
+            {{range $id,$name := .menu}}
+            <a href="/main?id={{$id}}">{{$name}}</a>
+            {{end}}
+        </div>
+    <a style="display: block;margin-left:10%;height: 2rem;width:5rem;margin-bottom:1rem;line-height: 2rem;padding: 0px 1.5rem;background: #00ccee;cursor: pointer;border-radius:.5rem;text-decoration: none;" href="#" onclick="G.showAdd();">新增配置</a>
+    <table class="g-list">
+        <tr>
+            <th>KEY</th>
+            <th>名字</th>
+            <th>内容</th>
+            <th>操作</th>
+        </tr>
+        {{range $id,$node := .list}}
+        <tr>
+
+            <td width="20%"><a href="/main?id={{$id}}">{{$node.key}}</a></td>
+            <td width="20%"><a href="/main?id={{$id}}">{{$node.name}}</a></td>
+            <td>{{$node.val}}</td>
+            <td>
+                <a href="#" onclick="G.update({{$id}})"> 编辑 </a> <br />
+                <a href="#" onclick="G.deleteNode({{$id}})"> 删除 </a>
+        </tr>
+        {{end}}
+    </table>
+
+
+    {{template "footer"}}
+{{end}}
+
+
+{{ define "header"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GConf 配置管理中心</title>
+    <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+    <script>
+
+    </script>
+    <script>
+      var G = {
+          showAdd : function(){
+            G.confirm($("#f-add").clone().show(),function(){
+                $.post("/add",$("#g-confirm .g-confirm-main form").serialize(),function(r){
+                    if(r.Code == 0){
+                       G.reload();
+                    }else{
+                        alert(r.Msg)
+                    }
+                },'JSON');
+            });
+          },
+          closeConfire : function(){
+              $("#g-bg").hide();
+              $("#g-confirm").hide();
+          },
+        confirm:function($element,func){
+            $("#g-bg").show();
+            $("#g-confirm .g-confirm-main").html("");
+            $("#g-confirm .g-confirm-main").append($element);
+            $("#g-confirm").show();
+            $("#g-confirm-ok").unbind()
+            $("#g-confirm-ok").click(func);
+        },
+
+          //删除节点
+          deleteNode:function (id) {
+              G.confirm("确认要删除吗?",function(){
+                  $.getJSON("/delete?id="+id,function (ret) {
+                     if(ret.Code == 0){
+
+                         G.reload();
+                     }else{
+                         alert(ret.Msg)
+                         G.reload();
+                     }
+
+                  });
+              });
+          },
+          //修改页面
+          update:function(id){
+              var $div = $("<div>正在努力加载...</div>");
+              G.confirm($div,function(){
+                  $.post("/update",$("#g-confirm .g-confirm-main form").serialize(),function(r){
+                      if(r.Code == 0){
+                          G.reload();
+                      }else{
+                          alert(r.Msg)
+                      }
+                  },'JSON');
+              });
+              $.getJSON("/get?id="+id,function(ret){
+                  if (ret.Code != 0){
+                      alert(ret.Msg)
+                      G.closeConfire()
+                  }else{
+                      var f = $("#f-add").clone().show()
+                      f.append($("<input type='hidden' name='id' value='"+ ret.Data.id +"' />"));
+                      f.find("input[name=key]").val(ret.Data.key);
+                      f.find("input[name=name]").val(ret.Data.name);
+                      f.find("textarea[name=val]").html(ret.Data.val);
+                      $("#g-confirm .g-confirm-main").html("");
+                      $("#g-confirm .g-confirm-main").append(f);
+                  }
+              });
+
+          },
+
+          /**
+           * 重新加载页面
+           */
+          reload:function(){
+                window.location.reload()
+          }
+
+        };
+    
+    </script>
+    <style>
+        html *{padding:0px;margin:0px;}
+        body{padding: 0px;margin:0px;font-size:14px;}
+        #g-bg{display: none;position: fixed;top:0px;left:0px;width: 100%;background: #000;opacity:.5;z-index: 1;height: 100%;}
+        #g-confirm{display: none;position: fixed;left:50%;top:50%;transform: translate(-50%,-50%);z-index: 2;border:thin solid;background: #FFF;padding:0px;}
+        #g-confirm .g-confirm-main{padding: 1rem;}
+        #g-confirm .g-confirm-foot{padding:0px 1rem;overflow: hidden;padding:1rem;}
+        #g-confirm .g-confirm-foot a{display: block;float: right;background: #cccccc;color:#000;border-radius: .5rem;height: 1.5rem;line-height: 1.5rem;padding:0px 1rem;margin-right: 1rem;right: 1rem;}
+        #g-confirm .g-confirm-foot #g-confirm-ok{background: #000;color: #FFF;margin-right: 0rem;}
+    </style>
+</head>
+<body>
+{{end}}
+
+
+{{define "footer"}}
+<div id="g-bg"></div>
+<div id="g-confirm">
+    <div class="g-confirm-main">
+        ddd
+    </div>
+    <div class="g-confirm-foot">
+        <a id="g-confirm-ok">确认</a>
+        <a onclick="G.closeConfire();">取消</a>
+    </div>
+</div>
+</body>
+</html>
+{{end}}
